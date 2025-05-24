@@ -58,7 +58,8 @@ class SudokuSolverGUI:
         ejemplo_button = tk.Button(self.root, text="Ejemplo para resolver", command=self.load_example)
         ejemplo_button.grid(row=14, column=0, columnspan=9, sticky="we", pady=5)
         
-    #aquí colocamos especificaciónes con respecto a los números colocados
+    #aquí colocamos especificaciónes con respecto a los números colocados, las celdas
+    #sí se coloca una letra salga una ventana de error y si es más de 1 dijito también
     #colo el color al solucionar etc
 
     def get_grid(self):
@@ -66,12 +67,25 @@ class SudokuSolverGUI:
         for row in range(9):
             current_row = []
             for col in range(9):
-                val = self.entries[row][col].get()
-                num = int(val) if val.isdigit() else 0
+                val = self.entries[row][col].get().strip()
+                if val == "":
+                    num = 0
+                elif val.isdigit():
+                    if len(val) > 1:
+                        messagebox.showerror("Error", f"Número de más de un dígito en la celda ({row+1},{col+1}). Solo se permite 1-9.")
+                        return None
+                    num = int(val)
+                    if not (1 <= num <= 9):
+                        messagebox.showerror("Error", f"Número fuera de rango en la celda ({row+1},{col+1}). Solo se permite 1-9.")
+                        return None
+                else:
+                    messagebox.showerror("Error", f"Letra o carácter inválido en la celda ({row+1},{col+1}). Solo se permiten números del 1 al 9.")
+                    return None
                 current_row.append(num)
                 self.original_grid[row][col] = num
             grid.append(current_row)
         return grid
+
 
     def set_grid(self, grid):
         for row in range(9):
