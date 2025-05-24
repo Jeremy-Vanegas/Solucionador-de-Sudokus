@@ -59,7 +59,7 @@ class SudokuSolverGUI:
         ejemplo_button.grid(row=14, column=0, columnspan=9, sticky="we", pady=5)
         
     #aquí colocamos especificaciónes con respecto a los números colocados, las celdas
-    #sí se coloca una letra salga una ventana de error y si es más de 1 dijito también
+    #sí se coloca una letra o sea un 0 salga una ventana de error y si es más de 1 dijito también
     #colo el color al solucionar etc
 
     def get_grid(self):
