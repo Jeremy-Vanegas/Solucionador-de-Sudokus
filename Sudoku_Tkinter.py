@@ -1,7 +1,10 @@
+#Update por estebanx8
 #estas son las librerías que utilizaremos
 
 import tkinter as tk
 from tkinter import messagebox
+from tkinter import ttk
+import threading
 
 #aquí definimos los objetos
 
@@ -14,9 +17,14 @@ class SudokuSolverGUI:
         self.original_grid = [[0 for _ in range(9)] for _ in range(9)]
         self.create_grid()
         self.create_buttons()
-        self.status_Label = tk.Label(self.root, text="COLOCA TU SUDOKU A RESOLVER!!!!", font=("Arial"))
-        self.status_Label.grid(row=9, column=0, columnspan=9, pady=5)
-        
+        self.status_label = tk.Label(self.root, text="COLOCA TU SUDOKU A RESOLVER!!!!", font=("Arial"))
+        self.status_label.grid(row=9, column=0, columnspan=9, pady=5)
+        # Barra de progreso
+        self.progress = ttk.Progressbar(self.root, orient="horizontal", length=400, mode="determinate")
+        self.progress.grid(row=10, column=0, columnspan=9, pady=5)
+        self.progress["maximum"] = 100  # Porcentaje
+        self.progress_value = 0
+
     #procedemos a crear las celdas
 
     def create_grid(self):
@@ -49,7 +57,7 @@ class SudokuSolverGUI:
     #aquí colocamos los botónes
 
     def create_buttons(self):
-        solve_button = tk.Button(self.root, text="Resolver", command=self.solve_sudoku)
+        solve_button = tk.Button(self.root, text="Resolver", command=self.solve_sudoku_thread)
         solve_button.grid(row=11, column=0, columnspan=9, sticky="we", pady=5)
         
         clear_button = tk.Button(self.root, text="Nuevo Sudoku", command=self.clear_grid)
@@ -113,14 +121,16 @@ class SudokuSolverGUI:
     #aquí tenemos el procedimietno de resolucion de los sudokus
     #utilizando el back-traking
 
-    def solve(self, grid):
+    def solve(self, grid, update_progress=None):
         for row in range(9):
             for col in range(9):
                 if grid[row][col] == 0:
                     for num in range(1, 10):
                         if self.is_valid(grid, row, col, num):
                             grid[row][col] = num
-                            if self.solve(grid):
+                            if update_progress:
+                                update_progress(row * 9 + col + 1)
+                            if self.solve(grid, update_progress):
                                 return True
                             grid[row][col] = 0
                     return False
@@ -130,11 +140,53 @@ class SudokuSolverGUI:
 
     def solve_sudoku(self):
         grid = self.get_grid()
+        if grid is None:
+            return  # Si hay error en la entrada, no intenta resolver
         if self.solve(grid):
             self.set_grid(grid)
+            self.status_label.config(text="¡Sudoku resuelto!", fg="green")
         else:
             messagebox.showerror("Error", "No se pudo resolver el Sudoku. Verifica los datos ingresados.")
-            
+            self.status_label.config(text="No se pudo resolver el Sudoku.", fg="red")
+        self.progress["value"] = 81
+
+    # Hilo para no bloquear la interfaz
+    def solve_sudoku_thread(self):
+        grid = self.get_grid()
+        if grid is None:
+            return
+        self.status_label.config(text="Resolviendo...", fg="orange")
+        self.progress["value"] = 0
+        self.progress_value = 0
+        # Calcula las posiciones vacías para progreso real
+        self.empty_cells = [(r, c) for r in range(9) for c in range(9) if grid[r][c] == 0]
+        self.total_empty = len(self.empty_cells)
+        threading.Thread(target=self.solve_sudoku, args=(grid,), daemon=True).start()
+
+    def solve_sudoku(self, grid):
+        solved = self.solve_with_progress(grid, 0)
+        if solved:
+            self.root.after(0, lambda: self.set_grid(grid))
+            self.root.after(0, lambda: self.status_label.config(text="¡Sudoku resuelto!", fg="green"))
+        else:
+            self.root.after(0, lambda: messagebox.showerror("Error", "No se pudo resolver el Sudoku. Verifica los datos ingresados."))
+            self.root.after(0, lambda: self.status_label.config(text="No se pudo resolver el Sudoku.", fg="red"))
+        self.root.after(0, lambda: self.progress.config(value=100))
+
+    def solve_with_progress(self, grid, idx):
+        if idx == self.total_empty:
+            return True
+        row, col = self.empty_cells[idx]
+        for num in range(1, 10):
+            if self.is_valid(grid, row, col, num):
+                grid[row][col] = num
+                percent = int((idx + 1) * 100 / self.total_empty)
+                self.root.after(0, lambda v=percent: self.progress.config(value=v))
+                if self.solve_with_progress(grid, idx + 1):
+                    return True
+                grid[row][col] = 0
+        return False
+    
     #función para el botón de "Nuevo Sudoku"
             
     def clear_grid(self):
@@ -144,7 +196,8 @@ class SudokuSolverGUI:
                self.entries[row][col].config(fg='black')
                self.original_grid[row][col] = 0
         self.status_label.config(text="")  # Borra el mensaje de estado
-        
+        self.progress["value"] = 0
+
     #función para el botón de "ejemplo a resolver"
         
     def load_example(self):
@@ -160,8 +213,14 @@ class SudokuSolverGUI:
          ]
          self.set_grid(example_grid)
          self.status_label.config(text="Ejemplo cargado", fg="blue")
+         self.progress["value"] = 0
          
 #iniciar aplicación
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = SudokuSolverGUI(root)
+    root.mainloop()
 
 if __name__ == "__main__":
     root = tk.Tk()
